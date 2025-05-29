@@ -22,17 +22,27 @@ fases_cache = {}
 
 # ==================== Funções de integração Bitrix ====================
 
-def carregar_pipelines():
-    global pipeline_cache
+def obter_nome_pipeline(category_id):
+    # Se já estiver no cache, usa
+    if category_id in pipeline_cache:
+        return pipeline_cache[category_id]
+    
+    # Senão, tenta buscar da API
     url = BITRIX_URL + "crm.category.list?entityTypeId=2"
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json().get('result', [])
-        pipeline_cache = {str(item['ID']): item['NAME'] for item in data}
-        print(f"✅ Pipelines carregadas: {pipeline_cache}")
+        for item in data:
+            if str(item['ID']) == category_id:
+                # Atualiza o cache
+                pipeline_cache[category_id] = item['NAME']
+                print(f"✅ Pipeline {category_id} carregada dinamicamente: {item['NAME']}")
+                return item['NAME']
     except Exception as e:
-        print(f"Erro ao carregar pipelines: {e}")
+        print(f"Erro ao obter nome do pipeline {category_id}: {e}")
+
+    return f"ID {category_id}"
 
 
 
