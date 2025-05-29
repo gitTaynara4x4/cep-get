@@ -13,7 +13,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 CACHE_PATH = "cache.json"
-
 BITRIX_URL = "https://marketingsolucoes.bitrix24.com.br/rest/5332/8zyo7yj1ry4k59b5/"
 
 # Caches locais
@@ -23,11 +22,9 @@ fases_cache = {}
 # ==================== Funções de integração Bitrix ====================
 
 def obter_nome_pipeline(category_id):
-    # Se já estiver no cache, usa
     if category_id in pipeline_cache:
         return pipeline_cache[category_id]
     
-    # Senão, tenta buscar da API
     url = BITRIX_URL + "crm.category.list?entityTypeId=2"
     try:
         resp = requests.get(url, timeout=10)
@@ -35,7 +32,6 @@ def obter_nome_pipeline(category_id):
         data = resp.json().get('result', [])
         for item in data:
             if str(item['ID']) == category_id:
-                # Atualiza o cache
                 pipeline_cache[category_id] = item['NAME']
                 print(f"✅ Pipeline {category_id} carregada dinamicamente: {item['NAME']}")
                 return item['NAME']
@@ -43,8 +39,6 @@ def obter_nome_pipeline(category_id):
         print(f"Erro ao obter nome do pipeline {category_id}: {e}")
 
     return f"ID {category_id}"
-
-
 
 def carregar_fases(category_id):
     global fases_cache
@@ -78,8 +72,19 @@ def carregar_cache():
         print("⚠️ ERRO: cache.json inválido ou corrompido.")
         return []
 
+def carregar_pipelines():
+    """Pré-carrega pipeline_cache e fases_cache com base no cache atual."""
+    dados = carregar_cache()
+    for deal in dados:
+        category_id = str(deal.get("CATEGORY_ID", ""))
+        if category_id:
+            if category_id not in pipeline_cache:
+                obter_nome_pipeline(category_id)
+            if category_id not in fases_cache:
+                carregar_fases(category_id)
+    print("✅ Pipelines e fases pré-carregadas com sucesso.")
+
 def processar_deal(deal):
-    # Obtém a deal completa via API
     deal_id = deal.get("ID")
     deal_completa = obter_deal_completa(deal_id)
     
@@ -92,14 +97,11 @@ def processar_deal(deal):
     category_id = str(deal_completa.get("CATEGORY_ID", ""))
     stage_id = deal_completa.get("STAGE_ID", "")
 
-    # Pega nome do pipeline
     pipeline_name = obter_nome_pipeline(category_id)
 
-    # Garante que fases daquela categoria foram carregadas
     if category_id and category_id not in fases_cache:
         carregar_fases(category_id)
 
-    # Pega nome da fase
     fase_name = fases_cache.get(category_id, {}).get(stage_id, stage_id)
 
     return {
@@ -199,5 +201,4 @@ async def buscar(
 
 # ==================== Inicialização ====================
 
-# Carrega o cache das pipelines na inicialização
 carregar_pipelines()
