@@ -42,6 +42,16 @@ def carregar_fases(category_id):
     except Exception as e:
         print(f"Erro ao carregar fases da categoria {category_id}: {e}")
 
+def obter_deal_completa(deal_id):
+    url = BITRIX_URL + f"crm.deal.get?id={deal_id}"
+    try:
+        resp = requests.get(url)
+        data = resp.json().get('result', None)
+        return data
+    except Exception as e:
+        print(f"Erro ao obter dados completos da deal {deal_id}: {e}")
+        return None
+
 # ==================== Funções principais ====================
 
 def carregar_cache():
@@ -55,10 +65,18 @@ def carregar_cache():
         return []
 
 def processar_deal(deal):
-    c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-    contato = deal.get("UF_CRM_1698698407472")
-    category_id = str(deal.get("CATEGORY_ID", ""))
-    stage_id = deal.get("STAGE_ID", "")
+    # Obtém a deal completa via API
+    deal_id = deal.get("ID")
+    deal_completa = obter_deal_completa(deal_id)
+    
+    if not deal_completa:
+        print(f"⚠️ Não foi possível obter dados completos da deal {deal_id}, usando dados parciais.")
+        deal_completa = deal
+
+    c = (deal_completa.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
+    contato = deal_completa.get("UF_CRM_1698698407472")
+    category_id = str(deal_completa.get("CATEGORY_ID", ""))
+    stage_id = deal_completa.get("STAGE_ID", "")
 
     # Pega nome do pipeline
     pipeline_name = pipeline_cache.get(category_id, f"ID {category_id}")
@@ -71,13 +89,13 @@ def processar_deal(deal):
     fase_name = fases_cache.get(category_id, {}).get(stage_id, stage_id)
 
     return {
-        "id_card": deal.get("ID"),
-        "cliente": deal.get("TITLE"),
+        "id_card": deal_completa.get("ID"),
+        "cliente": deal_completa.get("TITLE"),
         "pipeline": pipeline_name,
         "fase": fase_name,
         "contato": contato,
         "cep": c,
-        "criado_em": deal.get("DATE_CREATE")
+        "criado_em": deal_completa.get("DATE_CREATE")
     }
 
 def buscar_cep_unico(cep):
@@ -169,4 +187,3 @@ async def buscar(
 
 # Carrega o cache das pipelines na inicialização
 carregar_pipelines()
-
