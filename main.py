@@ -13,9 +13,37 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 CACHE_PATH = "cache.json"
-BITRIX_URL = "https://marketingsolucoes.bitrix24.com.br/rest/5332/8zyo7yj1ry4k59b5"
 
-# Função: carregar cache protegido contra erro
+BITRIX_URL = "https://marketingsolucoes.bitrix24.com.br/rest/5332/8zyo7yj1ry4k59b5/"
+
+# Caches locais
+pipeline_cache = {}
+fases_cache = {}
+
+# ==================== Funções de integração Bitrix ====================
+
+def carregar_pipelines():
+    global pipeline_cache
+    url = BITRIX_URL + "crm.category.list"
+    try:
+        resp = requests.get(url)
+        data = resp.json().get('result', [])
+        pipeline_cache = {str(item['ID']): item['NAME'] for item in data}
+    except Exception as e:
+        print(f"Erro ao carregar pipelines: {e}")
+
+def carregar_fases(category_id):
+    global fases_cache
+    url = BITRIX_URL + f"crm.dealcategory.stage.list?ID={category_id}"
+    try:
+        resp = requests.get(url)
+        data = resp.json().get('result', [])
+        fases_cache[str(category_id)] = {item['STATUS_ID']: item['NAME'] for item in data}
+    except Exception as e:
+        print(f"Erro ao carregar fases da categoria {category_id}: {e}")
+
+# ==================== Funções principais ====================
+
 def carregar_cache():
     if not os.path.exists(CACHE_PATH):
         return []
@@ -26,25 +54,32 @@ def carregar_cache():
         print("⚠️ ERRO: cache.json inválido ou corrompido.")
         return []
 
-# Função: obter nome do pipeline
-def obter_nome_pipeline(category_id):
-    resp = requests.get(f"{BITRIX_URL}/crm.category.list")
-    categorias = resp.json().get('result', [])
-    for cat in categorias:
-        if str(cat['ID']) == str(category_id):
-            return cat['NAME']
-    return f"Pipeline {category_id}"
+def processar_deal(deal):
+    c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
+    contato = deal.get("UF_CRM_1698698407472")
+    category_id = str(deal.get("CATEGORY_ID", ""))
+    stage_id = deal.get("STAGE_ID", "")
 
-# Função: obter nome da fase
-def obter_nome_fase(category_id, stage_id):
-    resp = requests.get(f"{BITRIX_URL}/crm.dealcategory.stage.list", params={"id": category_id})
-    estagios = resp.json().get('result', [])
-    for est in estagios:
-        if est['STATUS_ID'] == stage_id:
-            return est['NAME']
-    return f"Fase {stage_id}"
+    # Pega nome do pipeline
+    pipeline_name = pipeline_cache.get(category_id, f"ID {category_id}")
 
-# Função: buscar por um único CEP
+    # Garante que fases daquela categoria foram carregadas
+    if category_id and category_id not in fases_cache:
+        carregar_fases(category_id)
+
+    # Pega nome da fase
+    fase_name = fases_cache.get(category_id, {}).get(stage_id, stage_id)
+
+    return {
+        "id_card": deal.get("ID"),
+        "cliente": deal.get("TITLE"),
+        "pipeline": pipeline_name,
+        "fase": fase_name,
+        "contato": contato,
+        "cep": c,
+        "criado_em": deal.get("DATE_CREATE")
+    }
+
 def buscar_cep_unico(cep):
     cep = cep.replace("-", "").strip()
     dados = carregar_cache()
@@ -52,26 +87,10 @@ def buscar_cep_unico(cep):
 
     for deal in dados:
         c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-        contato = deal.get("UF_CRM_1698698407472")
         if c == cep:
-            categoria_id = deal.get("CATEGORY_ID")
-            stage_id = deal.get("STAGE_ID")
-
-            nome_pipeline = obter_nome_pipeline(categoria_id)
-            nome_fase = obter_nome_fase(categoria_id, stage_id)
-
-            resultados.append({
-                "id_card": deal.get("ID"),
-                "cliente": deal.get("TITLE"),
-                "pipeline": nome_pipeline,
-                "fase": nome_fase,
-                "contato": contato,
-                "cep": c,
-                "criado_em": deal.get("DATE_CREATE")
-            })
+            resultados.append(processar_deal(deal))
     return resultados
 
-# Função: buscar vários CEPs
 def buscar_varios_ceps(lista_ceps):
     ceps_set = set(c.strip().replace("-", "") for c in lista_ceps if c.strip())
     dados = carregar_cache()
@@ -79,26 +98,10 @@ def buscar_varios_ceps(lista_ceps):
 
     for deal in dados:
         c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-        contato = deal.get("UF_CRM_1698698407472")
         if c in ceps_set:
-            categoria_id = deal.get("CATEGORY_ID")
-            stage_id = deal.get("STAGE_ID")
-
-            nome_pipeline = obter_nome_pipeline(categoria_id)
-            nome_fase = obter_nome_fase(categoria_id, stage_id)
-
-            resultados.append({
-                "id_card": deal.get("ID"),
-                "cliente": deal.get("TITLE"),
-                "pipeline": nome_pipeline,
-                "fase": nome_fase,
-                "contato": contato,
-                "cep": c,
-                "criado_em": deal.get("DATE_CREATE")
-            })
+            resultados.append(processar_deal(deal))
     return resultados
 
-# Função: extrair CEPs de arquivo
 async def extrair_ceps_arquivo(arquivo: UploadFile):
     nome = arquivo.filename.lower()
     conteudo = await arquivo.read()
@@ -121,17 +124,17 @@ async def extrair_ceps_arquivo(arquivo: UploadFile):
 
     return ceps
 
-# Página inicial
+# ==================== Rotas ====================
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Rota de busca
 @app.post("/buscar")
 async def buscar(
     cep: str = Form(None),
     arquivo: UploadFile = File(None),
-    formato: str = Form("txt")  # novo parâmetro opcional para escolher formato
+    formato: str = Form("txt")
 ):
     if arquivo and arquivo.filename != "":
         ceps = await extrair_ceps_arquivo(arquivo)
@@ -146,7 +149,7 @@ async def buscar(
                 media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 filename="resultado.xlsx"
             )
-        else:  # padrão: txt
+        else:
             output = io.StringIO()
             for res in resultados:
                 output.write(
@@ -161,3 +164,9 @@ async def buscar(
 
     else:
         return JSONResponse(content={"error": "Nenhum CEP ou arquivo enviado."})
+
+# ==================== Inicialização ====================
+
+# Carrega o cache das pipelines na inicialização
+carregar_pipelines()
+
