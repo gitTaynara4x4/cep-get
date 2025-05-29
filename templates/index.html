@@ -66,6 +66,7 @@
                         <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
                             <p><strong>ID:</strong> ${r.id_card}</p>
                             <p><strong>Cliente:</strong> ${r.cliente}</p>
+                            <p><strong>Pipeline:</strong> ${r.pipeline}</p>
                             <p><strong>Fase:</strong> ${r.fase}</p>
                             <p><strong>Contato:</strong> ${r.contato}</p>
                             <p><strong>CEP:</strong> ${r.cep}</p>
@@ -79,14 +80,14 @@
                     resultadoDiv.innerHTML = "<p class='text-gray-600 text-center'>Nenhum card encontrado para esse CEP.</p>";
                 }
             } else {
-                // Caso a resposta seja um arquivo (text ou excel), iniciar download automático
+                // Caso a resposta seja um arquivo (txt ou excel), iniciar download automático
                 const blob = await response.blob();
                 const contentDisposition = response.headers.get('Content-Disposition');
                 let filename = 'resultado';
 
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="(.+)"/);
-                    if (match.length > 1) {
+                    if (match && match.length > 1) {
                         filename = match[1];
                     }
                 }
