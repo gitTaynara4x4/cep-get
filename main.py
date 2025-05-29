@@ -93,7 +93,7 @@ def processar_deal(deal):
     stage_id = deal_completa.get("STAGE_ID", "")
 
     # Pega nome do pipeline
-    pipeline_name = pipeline_cache.get(category_id, f"ID {category_id}")
+    pipeline_name = obter_nome_pipeline(category_id)
 
     # Garante que fases daquela categoria foram carregadas
     if category_id and category_id not in fases_cache:
