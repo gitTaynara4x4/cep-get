@@ -26,11 +26,14 @@ def carregar_pipelines():
     global pipeline_cache
     url = BITRIX_URL + "crm.category.list?entityTypeId=2"
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
         data = resp.json().get('result', [])
         pipeline_cache = {str(item['ID']): item['NAME'] for item in data}
+        print(f"✅ Pipelines carregadas: {pipeline_cache}")
     except Exception as e:
         print(f"Erro ao carregar pipelines: {e}")
+
 
 
 def carregar_fases(category_id):
