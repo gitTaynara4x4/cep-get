@@ -1,204 +1,261 @@
 from fastapi import FastAPI, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+    FileResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import json
 import io
 import pandas as pd
+import psycopg2
 import os
+import tempfile
+from dotenv import load_dotenv
 import requests
 
+load_dotenv()
+
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="./cep-get/static"), name="static")
+templates = Jinja2Templates(directory="./cep-get/templates")
 
-CACHE_PATH = "cache.json"
-BITRIX_URL = "https://marketingsolucoes.bitrix24.com.br/rest/5332/8zyo7yj1ry4k59b5/"
 
-# Caches locais
-pipeline_cache = {}
-fases_cache = {}
+BITRIX_API_BASE = "https://marketingsolucoes.bitrix24.com.br/rest/5332/8zyo7yj1ry4k59b5"
 
-# ==================== Funções de integração Bitrix ====================
 
-def obter_nome_pipeline(category_id):
-    if category_id in pipeline_cache:
-        return pipeline_cache[category_id]
-    
-    url = BITRIX_URL + "crm.category.list?entityTypeId=2"
+def get_conn():
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+    )
+
+
+def get_categories():
     try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        data = resp.json().get('result', [])
-        for item in data:
-            if str(item['ID']) == category_id:
-                pipeline_cache[category_id] = item['NAME']
-                print(f"✅ Pipeline {category_id} carregada dinamicamente: {item['NAME']}")
-                return item['NAME']
-    except Exception as e:
-        print(f"Erro ao obter nome do pipeline {category_id}: {e}")
+        resp = requests.get(
+            f"{BITRIX_API_BASE}/crm.category.list", params={"entityTypeId": 2}
+        )
+        data = resp.json()
+        return {
+            cat["id"]: cat["name"]
+            for cat in data.get("result", {}).get("categories", [])
+        }
+    except:
+        return {}
 
-    return f"ID {category_id}"
 
-def carregar_fases(category_id):
-    global fases_cache
-    url = BITRIX_URL + f"crm.dealcategory.stage.list?ID={category_id}"
+def get_stages(category_id):
     try:
-        resp = requests.get(url)
-        data = resp.json().get('result', [])
-        fases_cache[str(category_id)] = {item['STATUS_ID']: item['NAME'] for item in data}
-    except Exception as e:
-        print(f"Erro ao carregar fases da categoria {category_id}: {e}")
+        resp = requests.get(
+            f"{BITRIX_API_BASE}/crm.dealcategory.stage.list", params={"id": category_id}
+        )
+        data = resp.json()
+        return {stage["STATUS_ID"]: stage["NAME"] for stage in data.get("result", [])}
+    except:
+        return {}
 
-def obter_deal_completa(deal_id):
-    url = BITRIX_URL + f"crm.deal.get?id={deal_id}"
-    try:
-        resp = requests.get(url)
-        data = resp.json().get('result', None)
-        return data
-    except Exception as e:
-        print(f"Erro ao obter dados completos da deal {deal_id}: {e}")
-        return None
 
-# ==================== Funções principais ====================
+def buscar_por_cep(cep):
+    cep_limpo = cep.replace("-", "").strip()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT "id", "title", "stage_id", "category_id", "uf_crm_cep", "uf_crm_contato", "date_create", "contato01", "contato02", "ordem_de_servico", "nome_do_cliente",
+            "nome_da_mae", "data_de_vencimento", "email", "cpf", "rg", "referencia", "rua", "data_de_instalacao", "quais_operadoras_tem_viabilidade"
+                FROM deals
+                WHERE replace("uf_crm_cep", '-', '') = %s;
+            """,
+                (cep_limpo,),
+            )
+            rows = cur.fetchall()
 
-def carregar_cache():
-    if not os.path.exists(CACHE_PATH):
-        return []
-    try:
-        with open(CACHE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        print("⚠️ ERRO: cache.json inválido ou corrompido.")
-        return []
+    # Carrega categorias e inicializa cache stages
+    categorias = get_categories()
+    stages_cache = {}
 
-def carregar_pipelines():
-    """Pré-carrega pipeline_cache e fases_cache com base no cache atual."""
-    dados = carregar_cache()
-    for deal in dados:
-        category_id = str(deal.get("CATEGORY_ID", ""))
-        if category_id:
-            if category_id not in pipeline_cache:
-                obter_nome_pipeline(category_id)
-            if category_id not in fases_cache:
-                carregar_fases(category_id)
-    print("✅ Pipelines e fases pré-carregadas com sucesso.")
-
-def processar_deal(deal):
-    deal_id = deal.get("ID")
-    deal_completa = obter_deal_completa(deal_id)
-    
-    if not deal_completa:
-        print(f"⚠️ Não foi possível obter dados completos da deal {deal_id}, usando dados parciais.")
-        deal_completa = deal
-
-    c = (deal_completa.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-    contato = deal_completa.get("UF_CRM_1698698407472")
-    category_id = str(deal_completa.get("CATEGORY_ID", ""))
-    stage_id = deal_completa.get("STAGE_ID", "")
-
-    pipeline_name = obter_nome_pipeline(category_id)
-
-    if category_id and category_id not in fases_cache:
-        carregar_fases(category_id)
-
-    fase_name = fases_cache.get(category_id, {}).get(stage_id, stage_id)
-
-    return {
-        "id_card": deal_completa.get("ID"),
-        "cliente": deal_completa.get("TITLE"),
-        "pipeline": pipeline_name,
-        "fase": fase_name,
-        "contato": contato,
-        "cep": c,
-        "criado_em": deal_completa.get("DATE_CREATE")
-    }
-
-def buscar_cep_unico(cep):
-    cep = cep.replace("-", "").strip()
-    dados = carregar_cache()
     resultados = []
+    for r in rows:
+        cat_id = r[3]
+        categoria_nome = categorias.get(cat_id, str(cat_id))
 
-    for deal in dados:
-        c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-        if c == cep:
-            resultados.append(processar_deal(deal))
+        # Carrega estágios da categoria (cache)
+        if cat_id not in stages_cache:
+            stages_cache[cat_id] = get_stages(cat_id)
+        fase_nome = stages_cache[cat_id].get(r[2], r[2])  # r[2] é stage_id
+
+        resultados.append(
+            {
+                "id": r[0],
+                "cliente": r[1],
+                "fase": fase_nome,
+                "categoria": categoria_nome,
+                "cep": r[4],
+                "contato": r[5],
+                "criado_em": (
+                    r[6].isoformat() if hasattr(r[6], "isoformat") else str(r[6])
+                ),
+                "contato01": r[8],
+                "contato02": r[9],
+                "ordem_de_servico": r[10],
+                "nome_do_cliente": r[11],
+                "nome_da_mae": r[12],
+                "data_de_vencimento": r[13],
+                "email": r[14],
+                "cpf": r[15],
+                "rg": r[16],
+                "referencia": r[17],
+                "rua": r[18],
+                "data_de_instalacao": r[19],
+                "quais_operadoras_tem_viabilidade": r[20],
+            }
+        )
     return resultados
+
 
 def buscar_varios_ceps(lista_ceps):
-    ceps_set = set(c.strip().replace("-", "") for c in lista_ceps if c.strip())
-    dados = carregar_cache()
-    resultados = []
+    ceps_limpos = [c.replace("-", "").strip() for c in lista_ceps if c.strip()]
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT "id", "title", "stage_id", "category_id", "uf_crm_cep", "uf_crm_contato", "date_create", "contato01", "contato02", "ordem_de_servico", "nome_do_cliente",
+            "nome_da_mae", "data_de_vencimento", "email", "cpf", "rg", "referencia", "rua", "data_de_instalacao", "quais_operadoras_tem_viabilidade"
+                FROM deals
+                WHERE replace("uf_crm_cep", '-', '') = ANY(%s);
+            """,
+                (ceps_limpos),
+            )
+            rows = cur.fetchall()
 
-    for deal in dados:
-        c = (deal.get("UF_CRM_1700661314351") or "").replace("-", "").strip()
-        if c in ceps_set:
-            resultados.append(processar_deal(deal))
+    categorias = get_categories()
+    stages_cache = {}
+
+    resultados = []
+    for r in rows:
+        cat_id = r[3]
+        categoria_nome = categorias.get(cat_id, str(cat_id))
+
+        if cat_id not in stages_cache:
+            stages_cache[cat_id] = get_stages(cat_id)
+        fase_nome = stages_cache[cat_id].get(r[2], r[2])
+
+        resultados.append(
+            {
+                "id": r[0],
+                "cliente": r[1],
+                "fase": fase_nome,
+                "categoria": categoria_nome,
+                "uf_crm_cep": r[4],
+                "contato": r[5],
+                "criado_em": (
+                    r[6].isoformat() if hasattr(r[6], "isoformat") else str(r[6])
+                ),
+                "contato01": r[8],
+                "contato02": r[9],
+                "ordem_de_servico": r[10],
+                "nome_do_cliente": r[11],
+                "nome_da_mae": r[12],
+                "data_de_vencimento": r[13],
+                "email": r[14],
+                "cpf": r[15],
+                "rg": r[16],
+                "referencia": r[17],
+                "rua": r[18],
+                "data_de_instalacao": r[19],
+                "quais_operadoras_tem_viabilidade": r[20],
+            }
+        )
     return resultados
+
 
 async def extrair_ceps_arquivo(arquivo: UploadFile):
     nome = arquivo.filename.lower()
     conteudo = await arquivo.read()
     ceps = []
 
-    if nome.endswith('.txt'):
+    if nome.endswith(".txt"):
         ceps = conteudo.decode().splitlines()
-    elif nome.endswith('.csv'):
+    elif nome.endswith(".csv"):
         df = pd.read_csv(io.BytesIO(conteudo))
         for col in df.columns:
-            if 'cep' in col.lower():
+            if "cep" in col.lower():
                 ceps = df[col].astype(str).tolist()
                 break
-    elif nome.endswith('.xlsx'):
+    elif nome.endswith(".xlsx"):
         df = pd.read_excel(io.BytesIO(conteudo))
         for col in df.columns:
-            if 'cep' in col.lower():
+            if "cep" in col.lower():
                 ceps = df[col].astype(str).tolist()
                 break
-
     return ceps
 
-# ==================== Rotas ====================
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+
 @app.post("/buscar")
 async def buscar(
-    cep: str = Form(None),
-    arquivo: UploadFile = File(None),
-    formato: str = Form("txt")
+    cep: str = Form(None), arquivo: UploadFile = File(None), formato: str = Form("txt")
 ):
+    if cep and (arquivo and arquivo.filename != ""):
+        return JSONResponse(
+            content={"error": "Envie apenas um CEP ou um arquivo, não ambos."},
+            status_code=400,
+        )
+
     if arquivo and arquivo.filename != "":
         ceps = await extrair_ceps_arquivo(arquivo)
+        if not ceps:
+            return JSONResponse(
+                content={"error": "Nenhum CEP encontrado no arquivo."}, status_code=400
+            )
+
         resultados = buscar_varios_ceps(ceps)
+        if not resultados:
+            resultados = []
 
         if formato == "xlsx":
             df = pd.DataFrame(resultados)
-            caminho_saida = "resultado.xlsx"
-            df.to_excel(caminho_saida, index=False)
-            return FileResponse(
-                caminho_saida,
-                media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                filename="resultado.xlsx"
-            )
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                df.to_excel(tmp.name, index=False)
+                tmp.seek(0)
+                return FileResponse(
+                    tmp.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename="resultado.xlsx",
+                )
         else:
             output = io.StringIO()
             for res in resultados:
                 output.write(
-                    f"ID: {res['id_card']} | Cliente: {res['cliente']} | Pipeline: {res['pipeline']} | Fase: {res['fase']} | CEP: {res['cep']} | Contato: {res['contato']} | Criado em: {res['criado_em']}\n"
+                    f"ID: {res['id']} | Cliente: {res['cliente']} | Fase: {res['fase']} | Categoria: {res['categoria']} | CEP: {res['uf_crm_cep']} | Contato: {res['contato']} | \
+                          Criado em: {res['criado_em']} | Contato 01: {res['contato01']} | Contato 02: {res['contato02']} | Ordem de Serviço: {res['ordem_de_servico']} \
+                             | Nome do Cliente: {res['nome_do_cliente']} | Nome da Mãe: {res['nome_da_mae']} | Data de Vencimento: {res['data_de_vencimento']} | Email: {res['email']} \
+                                 | CPF: {res['cpf']} | RG: {res['rg']} | Referência: {res['referencia']} | Rua: {res['rua']} | Data de Instalação: {res['data_de_instalacao']} | Quais operadoras tem viabilidade: {res['quais_operadoras_tem_viabilidade']} \n"
                 )
             output.seek(0)
-            return PlainTextResponse(content=output.read(), media_type='text/plain')
+
+            headers = {"Content-Disposition": 'attachment; filename="resultado.txt"'}
+
+            return StreamingResponse(output, media_type="text/plain", headers=headers)
 
     elif cep:
-        resultados = buscar_cep_unico(cep)
-        return JSONResponse(content={"total": len(resultados), "resultados": resultados})
+        resultados = buscar_por_cep(cep)
+        if not resultados:
+            resultados = []
+        return JSONResponse(
+            content={"total": len(resultados), "resultados": resultados}
+        )
 
     else:
-        return JSONResponse(content={"error": "Nenhum CEP ou arquivo enviado."})
-
-# ==================== Inicialização ====================
-
-carregar_pipelines()
+        return JSONResponse(
+            content={"error": "Nenhum CEP ou arquivo enviado."}, status_code=400
+        )
