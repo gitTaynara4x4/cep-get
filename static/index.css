@@ -1,0 +1,337 @@
+/* ===================== ANIMAÇÕES ===================== */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===================== ESTRUTURA GLOBAL ===================== */
+
+body {
+  background-color: #f9fafb;
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  color: #374151;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  transition: all 0.3s ease;
+  flex-direction: column;
+}
+
+header {
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+/* ===================== FORMULÁRIO ===================== */
+
+.formulario {
+  background-color: #ffffff;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.form-titulo {
+  font-size: 2.25rem;
+  font-weight: 800;
+  text-align: center;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.form-label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: block;
+  color: #4b5563;
+}
+
+.form-campo {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #111827;
+  background-color: #fefefe;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-campo::placeholder {
+  color: #6b7280;
+}
+
+.form-campo:focus-visible,
+.form-botao:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+  box-shadow: 0 0 8px #2563ebaa;
+}
+
+.form-campo:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6aa;
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.form-campo:required:invalid {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+  box-shadow: 0 0 6px #dc2626aa;
+}
+
+.form-botao {
+  background-color: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.125rem;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.5);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+}
+
+.form-botao:hover {
+  background-color: #1e40af;
+  box-shadow: 0 7px 15px rgba(30, 64, 175, 0.6);
+}
+
+/* ===================== CARREGANDO ===================== */
+
+.carregando {
+  display: none;
+  text-align: center;
+  color: #3b82f6;
+  font-weight: 600;
+  animation: pulse 1.5s infinite;
+  margin-top: -8px;
+}
+
+.carregando .loader {
+  border: 3px solid #d1d5db;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ===================== RESULTADOS ===================== */
+
+#resultado {
+  margin-top: 48px;
+  max-width: 720px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 12px;
+}
+
+#resultado h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  border-bottom: 2px solid #3b82f6;
+  padding-bottom: 8px;
+}
+
+.resultado-card {
+  background-color: #f9fafb;
+  border: 1.5px solid #d1d5db;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: #374151;
+  transition: box-shadow 0.3s ease;
+}
+
+.resultado-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.resultado-card .card-section {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.resultado-card .card-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.resultado-card p {
+  margin: 4px 0;
+  font-size: 0.95rem;
+}
+
+.nenhum-resultado,
+.download-msg {
+  font-size: 1rem;
+  padding: 12px;
+  border-radius: 10px;
+  background-color: #f3f4f6;
+  text-align: center;
+}
+
+.nenhum-resultado {
+  color: #4b5563;
+}
+
+.download-msg {
+  color: #16a34a;
+}
+
+/* ===================== BOTÕES DE OPÇÃO ===================== */
+
+.btn-container {
+  max-width: 500px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 12px;
+}
+
+.btn-opcao {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background-color: #3b82f6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  font-size: 0.95rem;
+  min-width: 80px;
+  text-align: center;
+}
+
+.btn-opcao:hover,
+.btn-opcao.ativo {
+  background-color: #1e40af;
+  transform: scale(1.03);
+}
+
+.btn-opcao:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===================== LOGO ===================== */
+
+.logo {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.logo img {
+  max-width: 200px;
+  height: auto;
+}
+
+/* ===================== RESPONSIVO ===================== */
+
+@media (max-width: 768px) {
+  body { padding: 12px; }
+
+  .formulario {
+    padding: 20px;
+    max-width: 100%;
+  }
+
+  .btn-opcao { font-size: 0.9rem; }
+
+  .resultado-card {
+    padding: 14px 18px;
+  }
+}
+
+/* ===================== AJUSTES PARA FLUIDEZ NO MOBILE ===================== */
+
+@media (max-width: 480px) {
+
+  /* Garantir que o formulário não ultrapasse a largura da tela */
+  .formulario {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 12px;
+    box-sizing: border-box;
+    /* Tornar o formulário vertical, espaçado e fácil de tocar */
+    gap: 18px;
+  }
+
+  /* Inputs e selects ocupando 100% da largura disponível */
+  .form-campo {
+    width: 100% !important;
+    max-width: 100%;
+    font-size: 1.1rem;
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  /* Botão ocupar toda a largura e ficar maior */
+  .form-botao {
+    width: 100% !important;
+    font-size: 1.25rem;
+    padding: 16px 0;
+    border-radius: 14px;
+  }
+
+  /* Container dos botões (opções) passa para layout vertical */
+  .btn-container {
+    max-width: 100%;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-opcao {
+    font-size: 1.2rem;
+    min-width: 100%;
+    padding: 14px 0;
+    border-radius: 14px;
+  }
+
+  /* Header mais compacto */
+  header {
+    padding: 8px 12px;
+  }
+
+  /* Logo menor para caber na tela */
+  .logo img {
+    max-width: 140px;
+  }
+}
