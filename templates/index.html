@@ -1,108 +1,211 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Buscar Cards por CEP</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Consulta Inteligente</title>
+    <link rel="stylesheet" href="/cep-get-on/cep-get/static/index.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  </head>
 
-    <img src="/static/preta_reta_azul (1).svg" alt="Logo" class="w-48 mb-6">
+  <body>
+    <!-- Logo -->
+    <div class="logo">
+      <img src="/cep-get-on/cep-get/static/preta_reta_azul (1).svg" alt="Logo" />
+    </div>
 
-    <form id="cep-form" class="bg-white p-6 rounded-lg shadow-lg space-y-4 w-full max-w-xl">
-        <h1 class="text-2xl font-bold text-center text-gray-800">Consulta de CEPs</h1>
+    <!-- Header -->
+    <header>
+      <h1>Selecionar tipo de busca</h1>
+      <div class="btn-container">
+        <button id="btn-rua" class="btn-opcao">RUA</button>
+        <button id="btn-bairro" class="btn-opcao">BAIRRO</button>
+        <button id="btn-cidade" class="btn-opcao">CIDADE</button>
+        <button id="btn-estado" class="btn-opcao">ESTADO</button>
+        <button id="btn-cep" class="btn-opcao">CEP</button>
+      </div>
+    </header>
 
-        <label class="block text-gray-700 font-semibold">Digite o CEP:</label>
-        <input type="text" name="cep" class="border p-2 rounded w-full">
+    <!-- Formulários -->
+    <main>
+      <section id="form-rua" class="form-busca" style="display: none; flex-direction: column; align-items: center;">
+        <form id="rua-form" class="formulario fade-in">
+          <h2>Consulta por Rua</h2>
+          <div>
+            <label for="rua" class="form-label">Digite a Rua:</label>
+            <input type="text" id="rua" name="rua" class="form-campo" placeholder="Ex: Av. Brasil" required />
+          </div>
+          <div>
+            <label for="arquivo-rua" class="form-label">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
+            <input type="file" id="arquivo-rua" name="arquivo" class="form-campo" accept=".txt,.csv,.xlsx" />
+          </div>
+          <div>
+            <label for="formato-rua" class="form-label">Formato de Download:</label>
+            <select id="formato-rua" name="formato" class="form-campo">
+              <option value="txt">TXT</option>
+              <option value="xlsx">Excel</option>
+            </select>
+          </div>
+          <button type="submit" class="form-botao">Buscar</button>
+          <div id="carregando-rua" style="display:none;">Carregando...</div>
+        </form>
+      </section>
 
-        <label class="block text-gray-700 font-semibold">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
-        <input type="file" name="arquivo" accept=".txt,.csv,.xlsx" class="border p-2 rounded w-full">
+      <section id="form-bairro" class="form-busca" style="display: none; flex-direction: column; align-items: center;">
+        <form id="bairro-form" class="formulario fade-in">
+          <h2>Consulta por Bairro</h2>
+          <div>
+            <label for="bairro" class="form-label">Digite o Bairro:</label>
+            <input type="text" id="bairro" name="bairro" class="form-campo" placeholder="Ex: Centro" required />
+          </div>
+          <div>
+            <label for="cidade-bairro" class="form-label">Digite a Cidade:</label>
+            <input type="text" id="cidade-bairro" name="cidade" class="form-campo" placeholder="Ex: Belo Horizonte" required />
+          </div>
+          <div>
+            <label for="arquivo-bairro" class="form-label">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
+            <input type="file" id="arquivo-bairro" name="arquivo" class="form-campo" accept=".txt,.csv,.xlsx" />
+          </div>
+          <div>
+            <label for="formato-bairro" class="form-label">Formato de Download:</label>
+            <select id="formato-bairro" name="formato" class="form-campo">
+              <option value="txt">TXT</option>
+              <option value="xlsx">Excel</option>
+            </select>
+          </div>
+          <button type="submit" class="form-botao">Buscar</button>
+          <div id="carregando-bairro" style="display:none;">Carregando...</div>
+        </form>
+      </section>
 
-        <label class="block text-gray-700 font-semibold">Formato de Download:</label>
-        <select name="formato" class="border p-2 rounded w-full">
-            <option value="txt">TXT</option>
-            <option value="xlsx">Excel</option>
-        </select>
+      <section id="form-cidade" class="form-busca" style="display: none; flex-direction: column; align-items: center;">
+        <form id="cidade-form" class="formulario fade-in">
+          <h2>Consulta por Cidade</h2>
+          <div>
+            <label for="cidade" class="form-label">Digite a Cidade:</label>
+            <input type="text" id="cidade" name="cidade" class="form-campo" placeholder="Ex: Belo Horizonte" required />
+          </div>
+          <div>
+            <label for="arquivo-cidade" class="form-label">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
+            <input type="file" id="arquivo-cidade" name="arquivo" class="form-campo" accept=".txt,.csv,.xlsx" />
+          </div>
+          <div>
+            <label for="formato-cidade" class="form-label">Formato de Download:</label>
+            <select id="formato-cidade" name="formato" class="form-campo">
+              <option value="txt">TXT</option>
+              <option value="xlsx">Excel</option>
+            </select>
+          </div>
+          <button type="submit" class="form-botao">Buscar</button>
+          <div id="carregando-cidade" style="display:none;">Carregando...</div>
+        </form>
+      </section>
 
-        <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            Buscar
-        </button>
+      <section id="form-estado" class="form-busca" style="display: none; flex-direction: column; align-items: center;">
+        <form id="estado-form" class="formulario fade-in">
+          <h2>Consulta por Estado</h2>
+          <div>
+            <label for="estado" class="form-label">Digite o Estado:</label>
+            <input type="text" id="estado" name="estado" class="form-campo" placeholder="Ex: MG" required />
+          </div>
+          <div>
+            <label for="arquivo-estado" class="form-label">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
+            <input type="file" id="arquivo-estado" name="arquivo" class="form-campo" accept=".txt,.csv,.xlsx" />
+          </div>
+          <div>
+            <label for="formato-estado" class="form-label">Formato de Download:</label>
+            <select id="formato-estado" name="formato" class="form-campo">
+              <option value="txt">TXT</option>
+              <option value="xlsx">Excel</option>
+            </select>
+          </div>
+          <button type="submit" class="form-botao">Buscar</button>
+          <div id="carregando-estado" style="display:none;">Carregando...</div>
+        </form>
+      </section>
 
-        <div id="carregando" class="hidden text-blue-500 font-medium text-center">Carregando...</div>
-    </form>
+      <section id="form-cep" class="form-busca" style="display:none; flex-direction: column; align-items: center;">
+        <form id="cep-form" class="formulario fade-in">
+          <h2>Consulta de CEPs</h2>
+          <div>
+            <label for="cep" class="form-label">Digite o CEP:</label>
+            <input
+              type="text"
+              id="cep"
+              name="cep"
+              class="form-campo"
+              placeholder="Ex: 12345-678"
+              pattern="\\d{5}-\\d{3}"
+              required
+            />
+            <span class="erro-cep" style="display:none; color:#ef4444; font-size:0.9rem;">
+              CEP inválido. Use o formato 12345-678.
+            </span>
+          </div>
+          <div>
+            <label for="arquivo-cep" class="form-label">Ou envie um arquivo (.txt, .csv, .xlsx):</label>
+            <input type="file" id="arquivo-cep" name="arquivo" class="form-campo" accept=".txt,.csv,.xlsx" />
+          </div>
+          <div>
+            <label for="formato-cep" class="form-label">Formato de Download:</label>
+            <select id="formato-cep" name="formato" class="form-campo">
+              <option value="txt">TXT</option>
+              <option value="xlsx">Excel</option>
+            </select>
+          </div>
+          <button type="submit" class="form-botao">Buscar</button>
+          <div id="carregando-cep" style="display:none;">Carregando...</div>
+        </form>
+      </section>
+    </main>
 
-    <div id="resultado" class="mt-8 w-full max-w-2xl space-y-4"></div>
+    <!-- Resultado -->
+    <div id="resultado"></div>
 
+    <!-- Script -->
     <script>
-        const form = document.getElementById('cep-form');
-        const resultadoDiv = document.getElementById('resultado');
-        const carregando = document.getElementById('carregando');
+      const botoes = document.querySelectorAll(".btn-opcao");
+      const formularios = {
+        rua: document.getElementById("form-rua"),
+        bairro: document.getElementById("form-bairro"),
+        cidade: document.getElementById("form-cidade"),
+        estado: document.getElementById("form-estado"),
+        cep: document.getElementById("form-cep"),
+      };
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(form);
+      botoes.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          botoes.forEach((b) => b.classList.remove("ativo"));
+          btn.classList.add("ativo");
 
-            resultadoDiv.innerHTML = '';
-            carregando.classList.remove('hidden');
+          Object.values(formularios).forEach((f) => (f.style.display = "none"));
 
-            const response = await fetch('/buscar', {
-                method: 'POST',
-                body: formData
-            });
-
-            carregando.classList.add('hidden');
-
-            const contentType = response.headers.get("content-type");
-
-            if (contentType.includes("application/json")) {
-                const data = await response.json();
-                if (data.resultados && data.resultados.length) {
-                    let html = '<h2 class="text-xl font-semibold text-gray-800 mb-4">Resultados:</h2>';
-                    html += '<div class="grid gap-4">';
-
-                    data.resultados.forEach(r => {
-                        html += `
-                        <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
-                            <p><strong>ID:</strong> ${r.id_card}</p>
-                            <p><strong>Cliente:</strong> ${r.cliente}</p>
-                            <p><strong>Pipeline:</strong> ${r.pipeline}</p>
-                            <p><strong>Fase:</strong> ${r.fase}</p>
-                            <p><strong>Contato:</strong> ${r.contato}</p>
-                            <p><strong>CEP:</strong> ${r.cep}</p>
-                            <p><strong>Criado em:</strong> ${r.criado_em}</p>
-                        </div>`;
-                    });
-
-                    html += '</div>';
-                    resultadoDiv.innerHTML = html;
-                } else {
-                    resultadoDiv.innerHTML = "<p class='text-gray-600 text-center'>Nenhum card encontrado para esse CEP.</p>";
-                }
-            } else {
-                // Caso a resposta seja um arquivo (txt ou excel), iniciar download automático
-                const blob = await response.blob();
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = 'resultado';
-
-                if (contentDisposition) {
-                    const match = contentDisposition.match(/filename="(.+)"/);
-                    if (match && match.length > 1) {
-                        filename = match[1];
-                    }
-                }
-
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-
-                resultadoDiv.innerHTML = `<p class="text-green-600 text-center">Download iniciado: ${filename}</p>`;
-            }
+          const id = btn.id.replace("btn-", "");
+          const form = formularios[id];
+          if (form) {
+            document.body.classList.add("header-top");
+            form.style.display = "flex";
+            form.scrollIntoView({ behavior: "smooth" });
+          }
         });
+      });
+
+      const cepInput = document.getElementById("cep");
+      const erroCep = document.querySelector(".erro-cep");
+
+      if (cepInput) {
+        cepInput.addEventListener("input", () => {
+          const cepValue = cepInput.value;
+          const cepRegex = /^\d{5}-\d{3}$/;
+          if (cepValue && !cepRegex.test(cepValue)) {
+            erroCep.style.display = "block";
+            cepInput.setCustomValidity("CEP inválido");
+          } else {
+            erroCep.style.display = "none";
+            cepInput.setCustomValidity("");
+          }
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
